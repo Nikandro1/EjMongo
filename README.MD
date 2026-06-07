@@ -450,48 +450,6 @@ module.exports = validateObjectId;
 
 ---
 
-### `src/middlewares/notFound.js`
-
-Se registra después de todas las rutas. Se activa cuando ninguna ruta coincidió con el request.
-
-```js
-const notFound = (req, res, next) => {
-  res.status(404).json({ message: `Ruta no encontrada: ${req.method} ${req.originalUrl}` });
-};
-
-module.exports = notFound;
-```
-
----
-
-### `src/middlewares/errorHandler.js`
-
-Express lo identifica como middleware de errores por tener **4 parámetros** `(err, req, res, next)`. Se registra **al final de todo**, después de rutas y notFound.
-
-```js
-const errorHandler = (err, req, res, next) => {
-  console.error('💥 Error:', err.message);
-
-  // Error de validación de Mongoose
-  if (err.name === 'ValidationError') {
-    const messages = Object.values(err.errors).map((e) => e.message);
-    return res.status(400).json({ message: 'Error de validación', errors: messages });
-  }
-
-  // Error de duplicado (índice único)
-  if (err.code === 11000) {
-    return res.status(409).json({ message: 'Ya existe un registro con ese valor' });
-  }
-
-  // Error genérico
-  res.status(500).json({ message: 'Error interno del servidor' });
-};
-
-module.exports = errorHandler;
-```
-
----
-
 ## 🏗️ Entry point
 
 ### `index.js`
