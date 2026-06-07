@@ -1,16 +1,4 @@
 services:
-  app:
-    build: .
-    ports:
-      - "${PORT}:${PORT}"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    env_file:
-      - .env                      
-    networks:
-      - mongo-net
-
   mongodb:
     image: mongo:latest
     environment:

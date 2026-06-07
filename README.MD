@@ -1,33 +1,33 @@
 # 📦 CRUD con MongoDB, Mongoose y Node.js
 
-Proyecto de ejemplo para practicar operaciones CRUD usando **Node.js**, **Express**, **Mongoose** y **MongoDB**, organizado con una arquitectura por capas (schemas, models, controllers, routes, middlewares).
+Proyecto de ejemplo para practicar operaciones CRUD usando **Node.js**, **Express**, **Mongoose** y **MongoDB**, organizado con una arquitectura por capas (models, controllers, routes, middlewares).
 
 ---
 
 ## 📁 Estructura del proyecto
 
 ```
-mongo-crud/
+mongo-api/
 ├── src/
 │   ├── config/
-│   │   └── db.js                    # Conexión a MongoDB
+│   │   └── db.js                  # Conexión a MongoDB
 │   ├── controllers/
-│   │   ├── authorController.js      # Lógica CRUD para autores
-│   │   └── bookController.js        # Lógica CRUD para libros
+│   │   ├── autorController.js     # Lógica CRUD para autores
+│   │   └── libroController.js     # Lógica CRUD para libros
 │   ├── middlewares/
-│   │   ├── errorHandler.js          # Manejo centralizado de errores
-│   │   ├── notFound.js              # Rutas no encontradas (404)
-│   │   └── validateObjectId.js      # Valida que un :id sea un ObjectId válido
+│   │   ├── errorHandler.js        # Manejo centralizado de errores
+│   │   ├── notFound.js            # Rutas no encontradas (404)
+│   │   └── validateObjectId.js    # Valida que un :id sea un ObjectId válido
 │   ├── models/
-│   │   ├── Autor.js                # Schema + modelo de Autor
-│   │   └── Libro.js                  # Schema + modelo de Libro
+│   │   ├── Autor.js               # Schema + modelo de Autor
+│   │   └── Libro.js               # Schema + modelo de Libro
 │   └── routes/
-│       ├── autorRoutes.js          # Rutas /autores
-│       └── libroRoutes.js            # Rutas /libros
-├── .env                             # Variables de entorno
+│       ├── autorRoutes.js         # Rutas /autores
+│       └── libroRoutes.js         # Rutas /libros
+├── .env                           # Variables de entorno
 ├── docker-compose.yml
 ├── Dockerfile
-├── index.js                         # Entry point (levanta el servidor)
+├── index.js                       # Entry point (levanta el servidor)
 ├── package.json
 └── README.md
 ```
@@ -58,15 +58,23 @@ mkdir -p src/config src/controllers src/middlewares src/models src/routes
 ### `.env`
 
 ```env
-MONGO_URI=mongodb://mongo:27017/libreria
-PORT=3000
+PORT=3001
+MONGO_URL=mongodb://admin:admin1234@mongodb:27017/seriesMongo?authSource=admin
+
+# MongoDB
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=admin1234
+
+# Mongo Express
+ME_USERNAME=web
+ME_PASSWORD=web1234
 ```
 
-> Si corrés el proyecto **sin Docker** (MongoDB local), cambiá `MONGO_URI` a `mongodb://localhost:27017/libreria`.
+> Si corrés el proyecto **sin Docker** (MongoDB local), cambiá el host `mongodb` por `localhost` en `MONGO_URL`.
 
 ---
 
-### `src/config/db.js` — Conexión a MongoDB
+### `src/config/db.js`
 
 ```js
 const mongoose = require('mongoose');
@@ -95,17 +103,17 @@ Cada archivo de model define su propio schema de Mongoose y exporta el modelo di
 ```js
 const mongoose = require('mongoose');
 
-const authorSchema = new mongoose.Schema(
+const autorSchema = new mongoose.Schema(
   {
-    name: {
+    nombre: {
       type: String,
       required: true,
     },
-    nationality: {
-      type: String
+    nacionalidad: {
+      type: String,
     },
-    birthYear: {
-      type: Number
+    anioNacimiento: {
+      type: Number,
     },
   },
   {
@@ -113,9 +121,9 @@ const authorSchema = new mongoose.Schema(
   }
 );
 
-const Author = mongoose.model('Author', authorSchema);
+const Autor = mongoose.model('Autor', autorSchema);
 
-module.exports = Author;
+module.exports = Autor;
 ```
 
 ---
@@ -129,31 +137,32 @@ const libroSchema = new mongoose.Schema(
   {
     titulo: {
       type: String,
-      required: true
+      required: true,
     },
     genero: {
-      type: String
+      type: String,
     },
     anio: {
-      type: Number
+      type: Number,
     },
     // ref: 'Autor' indica que este campo apunta a un documento del modelo Autor
     // Permite usar .populate('autor') para obtener el objeto completo en lugar del _id
     autor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Autor',
-      required: true
+      required: true,
     },
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: { virtuals: true },   // incluye virtuals en res.json()
+    toObject: { virtuals: true }, // incluye virtuals al acceder el objeto en código
   }
 );
 
 // Virtual: clasifica el libro según su año de publicación
 // No se guarda en MongoDB, se calcula cada vez que se accede al documento
+// Importante: usar function() y no arrow function para poder acceder a this
 libroSchema.virtual('era').get(function () {
   if (!this.anio) return 'sin clasificar';
   if (this.anio < 1800) return 'antiguo';
@@ -183,7 +192,7 @@ const getAutores = async (req, res, next) => {
     const autores = await Autor.find();
     res.json(autores);
   } catch (error) {
-    res.status(500).json({message: "Error al buscar autores"})
+    res.status(500).json({ message: 'Error al buscar autores' });
   }
 };
 
@@ -196,7 +205,7 @@ const getAutorById = async (req, res, next) => {
     }
     res.json(autor);
   } catch (error) {
-    res.status(500).json({message: "Error al buscar autor"})
+    res.status(500).json({ message: 'Error al buscar autor' });
   }
 };
 
@@ -206,7 +215,7 @@ const createAutor = async (req, res, next) => {
     const autor = await Autor.create(req.body);
     res.status(201).json(autor);
   } catch (error) {
-    res.status(500).json({message: "Error al crear autor"})
+    res.status(500).json({ message: 'Error al crear autor' });
   }
 };
 
@@ -216,14 +225,14 @@ const updateAutor = async (req, res, next) => {
     const autor = await Autor.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true } // new: devuelve el doc actualizado;
+      { new: true } // devuelve el documento ya actualizado
     );
     if (!autor) {
       return res.status(404).json({ message: 'Autor no encontrado' });
     }
     res.json(autor);
   } catch (error) {
-    res.status(500).json({message: "Error al actualizar autor"})
+    res.status(500).json({ message: 'Error al actualizar autor' });
   }
 };
 
@@ -236,7 +245,7 @@ const deleteAutor = async (req, res, next) => {
     }
     res.json({ message: 'Autor eliminado correctamente' });
   } catch (error) {
-    res.status(404).json({message: "Error al crear autor"})
+    res.status(500).json({ message: 'Error al eliminar autor' });
   }
 };
 
@@ -253,27 +262,24 @@ const Libro = require('../models/Libro');
 // GET /libros
 const getAllLibros = async (req, res, next) => {
   try {
-    // populate reemplaza el ObjectId de author por el documento completo
-    const libros = await Libro.find().populate('author', 'name nationality');
-    if (!libros) {
-      return res.status(404).json({ message: 'Libros no encontrado' });
-    }
+    // populate reemplaza el ObjectId de autor por el documento completo
+    const libros = await Libro.find().populate('autor', 'nombre nacionalidad');
     res.status(200).json(libros);
   } catch (error) {
-    res.status(500).json({message: "Error al buscar libros"})
+    res.status(500).json({ message: 'Error al buscar libros' });
   }
 };
 
 // GET /libros/:id
 const getLibroById = async (req, res, next) => {
   try {
-    const libro = await Libro.findById(req.params.id).populate('author', 'name nationality');
+    const libro = await Libro.findById(req.params.id).populate('autor', 'nombre nacionalidad');
     if (!libro) {
       return res.status(404).json({ message: 'Libro no encontrado' });
     }
-    res.status(200).json(libros);
+    res.status(200).json(libro);
   } catch (error) {
-    res.status(500).json({ message: 'Error' });
+    res.status(500).json({ message: 'Error al buscar libro' });
   }
 };
 
@@ -283,7 +289,7 @@ const createLibro = async (req, res, next) => {
     const libro = await Libro.create(req.body);
     res.status(201).json(libro);
   } catch (error) {
-    res.status(500).json({message: "Error al crear libro"})
+    res.status(500).json({ message: 'Error al crear libro' });
   }
 };
 
@@ -293,18 +299,18 @@ const updateLibro = async (req, res, next) => {
     const libro = await Libro.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true}
+      { new: true }
     );
     if (!libro) {
       return res.status(404).json({ message: 'Libro no encontrado' });
     }
     res.status(200).json(libro);
   } catch (error) {
-    res.status(500).json({message: "Error al actualizar un libro"})
+    res.status(500).json({ message: 'Error al actualizar libro' });
   }
 };
 
-// DELETE libros/:id
+// DELETE /libros/:id
 const deleteLibro = async (req, res, next) => {
   try {
     const libro = await Libro.findByIdAndDelete(req.params.id);
@@ -313,12 +319,13 @@ const deleteLibro = async (req, res, next) => {
     }
     res.status(200).json({ message: 'Libro eliminado correctamente' });
   } catch (error) {
-    res.status(500).json({message: "Error al eliminar libro"})
+    res.status(500).json({ message: 'Error al eliminar libro' });
   }
 };
 
 module.exports = { getAllLibros, getLibroById, createLibro, updateLibro, deleteLibro };
 ```
+
 ---
 
 ### Usar el virtual `era` en un controller
@@ -333,7 +340,9 @@ const getLibroByEra = async (req, res, next) => {
     const validas = ['antiguo', 'moderno', 'contemporáneo', 'sin clasificar'];
 
     if (!validas.includes(era)) {
-      return res.status(400).json({ message: `Era inválida. Valores posibles: ${validas.join(', ')}` });
+      return res.status(400).json({
+        message: `Era inválida. Valores posibles: ${validas.join(', ')}`,
+      });
     }
 
     // lean() NO sirve acá porque desactiva los virtuals
@@ -343,9 +352,9 @@ const getLibroByEra = async (req, res, next) => {
     // Filtramos en memoria usando el virtual era de cada documento
     const resultado = libros.filter((libro) => libro.era === era);
 
-    res.status(200)json(resultado);
+    res.status(200).json(resultado);
   } catch (error) {
-    res.status(500).json({message: "Error al buscar libro por era"})
+    res.status(500).json({ message: 'Error al buscar libros por era' });
   }
 };
 ```
@@ -355,17 +364,24 @@ const getLibroByEra = async (req, res, next) => {
 > Si necesitás filtrar por ese criterio frecuentemente y con grandes volúmenes de datos,
 > lo recomendable es guardar el campo calculado como un campo real en el schema
 > y actualizarlo con un hook `pre('save')`.
+
 ---
 
 ## 🛣️ Routes
 
-Las rutas conectan cada endpoint HTTP con su función de controller (y sus middlewares intermedios si aplica).
+Las rutas conectan cada endpoint HTTP con su función de controller y sus middlewares intermedios.
 
 ### `src/routes/autorRoutes.js`
 
 ```js
 const { Router } = require('express');
-const { getAutores, getAutorById, createAutor, updateAutor, deleteAutor } = require('../controllers/autorController');
+const {
+  getAutores,
+  getAutorById,
+  createAutor,
+  updateAutor,
+  deleteAutor,
+} = require('../controllers/autorController');
 const validateObjectId = require('../middlewares/validateObjectId');
 
 const router = Router();
@@ -385,11 +401,21 @@ module.exports = router;
 
 ```js
 const { Router } = require('express');
-const { getAllLibros, getLibroById, createLibro, updateLibro, deleteLibro } = require('../controllers/libroController');
+const {
+  getAllLibros,
+  getLibroById,
+  createLibro,
+  updateLibro,
+  deleteLibro,
+  getLibroByEra,
+} = require('../controllers/libroController');
 const validateObjectId = require('../middlewares/validateObjectId');
 
 const router = Router();
 
+// Importante: la ruta /era/:era debe ir ANTES de /:id
+// Si va después, Express interpreta 'era' como un id y falla
+router.get('/era/:era', getLibroByEra);
 router.get('/', getAllLibros);
 router.get('/:id', validateObjectId, getLibroById);
 router.post('/', createLibro);
@@ -424,9 +450,23 @@ module.exports = validateObjectId;
 
 ---
 
+### `src/middlewares/notFound.js`
+
+Se registra después de todas las rutas. Se activa cuando ninguna ruta coincidió con el request.
+
+```js
+const notFound = (req, res, next) => {
+  res.status(404).json({ message: `Ruta no encontrada: ${req.method} ${req.originalUrl}` });
+};
+
+module.exports = notFound;
+```
+
+---
+
 ### `src/middlewares/errorHandler.js`
 
-Middleware de manejo de errores. Express lo identifica por tener **4 parámetros** `(err, req, res, next)`. Se registra **al final del todo**, después de rutas y notFound.
+Express lo identifica como middleware de errores por tener **4 parámetros** `(err, req, res, next)`. Se registra **al final de todo**, después de rutas y notFound.
 
 ```js
 const errorHandler = (err, req, res, next) => {
@@ -456,7 +496,7 @@ module.exports = errorHandler;
 
 ### `index.js`
 
-Es el punto de entrada de la aplicación. Vive en la raíz del proyecto, fuera de `src/`.
+Punto de entrada de la aplicación. Vive en la raíz del proyecto, fuera de `src/`.
 
 ```js
 require('dotenv').config();
@@ -466,6 +506,7 @@ const connectDB = require('./src/config/db');
 const autorRoutes = require('./src/routes/autorRoutes');
 const libroRoutes = require('./src/routes/libroRoutes');
 
+const notFound = require('./src/middlewares/notFound');
 const errorHandler = require('./src/middlewares/errorHandler');
 
 const app = express();
@@ -478,6 +519,7 @@ app.use('/autores', autorRoutes);
 app.use('/libros', libroRoutes);
 
 // Middlewares de error (siempre al final)
+app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
@@ -488,6 +530,8 @@ connectDB().then(() => {
   });
 });
 ```
+
+> **Orden importa:** `notFound` va después de todas las rutas pero antes de `errorHandler`. Si lo ponés antes de las rutas, todas las requests van a devolver 404.
 
 ---
 
@@ -513,70 +557,159 @@ CMD ["node", "index.js"]
 
 ### `docker-compose.yml`
 
+Solo levanta los servicios de base de datos. La app Node se corre por separado con `node index.js` o `nodemon`.
+
 ```yaml
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    depends_on:
-      mongo:
-        condition: service_healthy
+  mongodb:
+    image: mongo:latest
     environment:
-      MONGO_URI: mongodb://mongo:27017/libreria
-      PORT: 3000
-    networks:
-      - mongo-net
-
-  mongo:
-    image: mongo:7
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - ./mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "-u", "${MONGO_ROOT_USERNAME}", "-p", "${MONGO_ROOT_PASSWORD}", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - mongo-net
 
-volumes:
-  mongo-data:
+  mongo-express:
+    image: mongo-express
+    ports:
+      - "8081:8081"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/
+      ME_CONFIG_BASICAUTH: "false"
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_USERNAME}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_PASSWORD}
+    networks:
+      - mongo-net
 
 networks:
   mongo-net:
+
+volumes:
+  mongo_data:
 ```
 
 ---
 
 ## ▶️ Correr el proyecto
 
-### Con Docker (recomendado)
+### Solo la base de datos con Docker
 
 ```bash
-# Construir y levantar
-docker compose up --build
+# Levantar MongoDB y Mongo Express leyendo variables del .env
+docker compose --env-file .env up -d
 
-# Correr sin rebuild
-docker compose up
-
-# Detener contenedores
+# Detener los contenedores
 docker compose down
 
 # Detener y borrar el volumen de datos
 docker compose down -v
 ```
 
-### Sin Docker (MongoDB local)
+Una vez que los contenedores estén corriendo, podés acceder a **Mongo Express** en `http://localhost:8081` para ver y administrar la base de datos visualmente.
+
+### La app Node (en otra terminal)
 
 ```bash
-# Cambiar en .env:
-# MONGO_URI=mongodb://localhost:27017/libreria
+# Desarrollo con recarga automática
+npx nodemon index.js
 
+# O sin nodemon
 node index.js
 ```
+
+---
+
+## 🧪 Probar los endpoints
+
+Con el servidor corriendo en `http://localhost:3001`:
+
+### Autores
+
+**Crear un autor**
+```bash
+curl -X POST http://localhost:3001/autores \
+  -H "Content-Type: application/json" \
+  -d '{"nombre": "Gabriel García Márquez", "nacionalidad": "Colombia", "anioNacimiento": 1927}'
+```
+
+**Obtener todos los autores**
+```bash
+curl http://localhost:3001/autores
+```
+
+**Obtener autor por ID**
+```bash
+curl http://localhost:3001/autores/<id>
+```
+
+**Actualizar un autor**
+```bash
+curl -X PUT http://localhost:3001/autores/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"nacionalidad": "Colombiana"}'
+```
+
+**Eliminar un autor**
+```bash
+curl -X DELETE http://localhost:3001/autores/<id>
+```
+
+---
+
+### Libros
+
+**Crear un libro** (el campo `autor` debe ser un `_id` válido de un autor existente)
+```bash
+curl -X POST http://localhost:3001/libros \
+  -H "Content-Type: application/json" \
+  -d '{"titulo": "Cien años de soledad", "genero": "Realismo mágico", "anio": 1967, "autor": "<autor_id>"}'
+```
+
+**Obtener todos los libros** (incluye datos del autor via populate)
+```bash
+curl http://localhost:3001/libros
+```
+
+**Obtener libro por ID**
+```bash
+curl http://localhost:3001/libros/<id>
+```
+
+**Filtrar libros por era**
+```bash
+curl http://localhost:3001/libros/era/moderno
+curl http://localhost:3001/libros/era/contemporáneo
+curl http://localhost:3001/libros/era/antiguo
+```
+
+**Actualizar un libro**
+```bash
+curl -X PUT http://localhost:3001/libros/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"genero": "Realismo"}'
+```
+
+**Eliminar un libro**
+```bash
+curl -X DELETE http://localhost:3001/libros/<id>
+```
+
+---
+
 ## 🔍 Consultas avanzadas
 
 Estos métodos se encadenan sobre `Model.find()` para refinar los resultados. No son rutas del proyecto, son ejemplos para entender las capacidades de Mongoose.
@@ -615,7 +748,7 @@ await Libro.find({ titulo: { $regex: 'cien', $options: 'i' } });
 // $or: al menos una condición se cumple
 await Libro.find({ $or: [{ anio: { $lt: 1900 } }, { genero: 'Clásico' }] });
 
-// $and: todas las condiciones se cumplen (útil cuando hay ambigüedad)
+// $and: todas las condiciones se cumplen
 await Libro.find({ $and: [{ anio: { $gte: 1900 } }, { genero: 'Realismo mágico' }] });
 ```
 
@@ -627,20 +760,20 @@ En vez de reemplazar todo el documento, estos operadores modifican **solo los ca
 
 ### `$set` — actualizar campos específicos
 
-Sin `$set`, si pasás un objeto plano Mongoose puede reemplazar el documento entero con lo que le pasás. Con `$set`, solo toca los campos indicados y deja el resto intacto.
+Sin `$set`, podés pisar campos que no querías tocar. Con `$set`, solo se modifican los campos indicados y el resto del documento queda intacto.
 
 ```js
 // Sin $set: puede pisar campos que no querías tocar
 await Libro.findByIdAndUpdate(id, { genero: 'Terror' });
 
-// Con $set: solo actualiza genero, el resto del documento no se toca
+// Con $set: solo actualiza genero, el resto no se toca
 await Libro.findByIdAndUpdate(
   id,
   { $set: { genero: 'Terror' } },
   { new: true }
 );
 
-// Se pueden actualizar varios campos a la vez
+// Actualizar varios campos a la vez
 await Libro.findByIdAndUpdate(
   id,
   { $set: { genero: 'Terror', anio: 1985 } },
@@ -678,7 +811,7 @@ await Libro.findByIdAndUpdate(
   { new: true }
 );
 
-// Agregar múltiples elementos a la vez con $each
+// Agregar múltiples elementos con $each
 await Libro.findByIdAndUpdate(
   id,
   { $push: { etiquetas: { $each: ['clásico', 'premiado'] } } },
@@ -691,7 +824,7 @@ await Libro.findByIdAndUpdate(
 ### `$pull` — eliminar un elemento de un array
 
 ```js
-// Elimina todas las ocurrencias de 'best-seller' dentro del array etiquetas
+// Elimina todas las ocurrencias de 'best-seller' dentro del array
 await Libro.findByIdAndUpdate(
   id,
   { $pull: { etiquetas: 'best-seller' } },
@@ -722,8 +855,6 @@ await Libro.findByIdAndUpdate(
 );
 ```
 
-> **Resumen rápido**
->
 > | Operador | Para qué sirve |
 > |---|---|
 > | `$set` | Actualizar campos específicos sin tocar el resto |
@@ -735,7 +866,7 @@ await Libro.findByIdAndUpdate(
 
 ## 🔗 Aggregation Pipeline
 
-El **Aggregation Pipeline** es una herramienta de MongoDB para procesar documentos en etapas. Cada etapa recibe los documentos de la etapa anterior, los transforma y los pasa a la siguiente. Se ejecuta con `Model.aggregate([...])`.
+El **Aggregation Pipeline** es una herramienta de MongoDB para procesar documentos en etapas. Cada etapa recibe los documentos de la anterior, los transforma y los pasa a la siguiente. Se ejecuta con `Model.aggregate([...])`.
 
 Es más potente que `find()` porque permite hacer joins, agrupaciones y cálculos directamente en la base de datos, sin traer todos los datos a Node primero.
 
@@ -750,7 +881,7 @@ Colección → $match → $lookup → $unwind → $group → $project → result
 Equivalente al `WHERE` de SQL. Siempre conviene ponerlo **primero** para reducir la cantidad de documentos que procesan las etapas siguientes.
 
 ```js
-// Traer solo los libros publicados después de 1950
+// Libros publicados después de 1950
 const resultado = await Libro.aggregate([
   { $match: { anio: { $gt: 1950 } } }
 ]);
@@ -768,15 +899,14 @@ const resultado = await Libro.aggregate([
 Equivalente al `JOIN` de SQL. Une documentos de otra colección basándose en un campo en común.
 
 ```js
-// Traer cada libro con los datos completos de su autor
 const resultado = await Libro.aggregate([
   {
     $lookup: {
       from: 'autors',       // nombre real de la colección en MongoDB
-                            // Mongoose pluraliza el modelo 'Autor' → 'autors'
+                            // Mongoose pluraliza 'Autor' → 'autors'
       localField: 'autor',  // campo en Libro que tiene el ObjectId
       foreignField: '_id',  // campo en autors que debe coincidir
-      as: 'datosAutor',     // nombre del array que se agrega al documento resultado
+      as: 'datosAutor',     // nombre del array que se agrega al documento
     },
   },
 ]);
@@ -795,7 +925,7 @@ const resultado = await Libro.aggregate([
 
 ### `$unwind` — aplanar un array
 
-Convierte el array generado por `$lookup` en un objeto por elemento. Si el array tiene un solo elemento (relación 1 a 1), el documento queda con ese objeto directo.
+Convierte el array generado por `$lookup` en un objeto por elemento.
 
 ```js
 const resultado = await Libro.aggregate([
@@ -828,8 +958,8 @@ Equivalente al `GROUP BY` de SQL. Agrupa documentos por un campo y permite calcu
 const resultado = await Libro.aggregate([
   {
     $group: {
-      _id: '$genero',       // campo por el que se agrupa (obligatorio)
-      total: { $sum: 1 },   // suma 1 por cada documento del grupo
+      _id: '$genero',      // campo por el que se agrupa (obligatorio)
+      total: { $sum: 1 },  // suma 1 por cada documento del grupo
     },
   },
 ]);
@@ -837,7 +967,7 @@ const resultado = await Libro.aggregate([
 // Resultado:
 // [
 //   { _id: 'Realismo mágico', total: 3 },
-//   { _id: 'Terror', total: 5 },
+//   { _id: 'Terror', total: 5 }
 // ]
 
 // Promedio, máximo y mínimo de año por género
@@ -863,10 +993,10 @@ Equivalente al `SELECT` de SQL. Define qué campos incluir, excluir o transforma
 const resultado = await Libro.aggregate([
   {
     $project: {
-      _id: 0,                                        // 0 = excluir
-      titulo: 1,                                     // 1 = incluir
+      _id: 0,                                    // 0 = excluir
+      titulo: 1,                                 // 1 = incluir
       anio: 1,
-      tituloMayusculas: { $toUpper: '$titulo' },     // campo calculado
+      tituloMayusculas: { $toUpper: '$titulo' }, // campo calculado
     },
   },
 ]);
@@ -880,25 +1010,23 @@ const resultado = await Libro.aggregate([
 ### Pipeline completo — combinando todas las etapas
 
 ```js
-// Traer libros posteriores a 1900, con datos del autor,
-// mostrando solo titulo, anio y nombre del autor
 const resultado = await Libro.aggregate([
-  { $match: { anio: { $gte: 1900 } } },         // 1. filtrar por año
+  { $match: { anio: { $gte: 1900 } } },      // 1. filtrar por año
   {
-    $lookup: {                                    // 2. join con la colección autors
+    $lookup: {                                 // 2. join con autors
       from: 'autors',
       localField: 'autor',
       foreignField: '_id',
       as: 'datosAutor',
     },
   },
-  { $unwind: '$datosAutor' },                    // 3. aplanar el array a objeto
+  { $unwind: '$datosAutor' },                 // 3. aplanar array a objeto
   {
-    $project: {                                   // 4. elegir y renombrar campos
+    $project: {                               // 4. elegir y renombrar campos
       _id: 0,
       titulo: 1,
       anio: 1,
-      autor: '$datosAutor.nombre',               // renombrar campo anidado
+      autor: '$datosAutor.nombre',
     },
   },
 ]);
@@ -919,82 +1047,8 @@ const resultado = await Libro.aggregate([
 > | Uso | Consultas simples | Consultas complejas con cálculos o joins |
 > | Joins | `.populate()` (Mongoose) | `$lookup` (MongoDB) |
 > | Agrupaciones | ✗ | `$group` |
-> | Rendimiento en joins | Hace queries extra por populate | Todo en una sola query en la BD |
-> | Virtuals disponibles | ✅ | ✗ (trabaja directo sobre MongoDB) |
-### `src/models/Autor.js` — ejemplos de uso
-
-`````js
-// Traer solo los campos name y nationality (excluye _id con -_id)
-await Autor.find().select('name nationality -_id');
-
-// Ordenar por birthYear descendente (-1) o ascendente (1)
-await Autor.find().sort({ birthYear: -1 });
-
-// Paginación: saltear los primeros 10 y traer los siguientes 5
-await Autor.find().skip(10).limit(5);
-
-// lean() devuelve objetos JS planos, sin métodos Mongoose — más rápido para solo lectura
-await Autor.find().lean();
-
-// Contar documentos que cumplan una condición sin traerlos
-await Autor.countDocuments({ nationality: 'Colombia' });
-
-// Operadores de comparación
-await Libro.find({ year: { $gte: 1950, $lte: 2000 } }); // entre 1950 y 2000
-await Libro.find({ year: { $gt: 1980 } });               // mayor a 1980
-
-// $in: campo que esté dentro de una lista
-await Libro.find({ genre: { $in: ['Terror', 'Ciencia ficción'] } });
-
-// $regex: búsqueda por patrón (i = case insensitive)
-await Libro.find({ title: { $regex: 'cien', $options: 'i' } });
-
-// $or: al menos una condición se cumple
-await Libro.find({ $or: [{ year: { $lt: 1900 } }, { genre: 'Clásico' }] });
-\```
-
----
-
----
-
-## 🧪 Probar los endpoints
-
-Con el servidor corriendo en `http://localhost:3000`:
-
-### Autores
-
-```bash
-# Crear un autor
-curl -X POST http://localhost:3000/api/authors \
-  -H "Content-Type: application/json" \
-  -d '{"nombre": "Gabriel García Márquez", "nacionalidad": "Colombia", "anioNacimiento": 1927}'
-
-# Obtener todos
-curl http://localhost:3000/api/authors
-
-# Obtener por ID (reemplazá <id> por un _id real)
-curl http://localhost:3000/api/authors/<id>
-
-# Actualizar
-curl -X PUT http://localhost:3000/api/authors/<id> \
-  -H "Content-Type: application/json" \
-  -d '{"nacionalidad": "Colombiana"}'
-
-# Eliminar
-curl -X DELETE http://localhost:3000/api/authors/<id>
-```
-
-### Libros
-
-```bash
-# Crear un libro (el campo author debe ser un _id válido de un autor existente)
-curl -X POST http://localhost:3000/api/books \
-  -H "Content-Type: application/json" \
-  -d '{"titulo": "Cien años de soledad", "genero": "Realismo mágico", "anio": 1967, "autor": "<author_id>"}'
-
-# Obtener todos (incluye datos del autor via populate)
-curl http://localhost:3000/api/books
-```
+> | Rendimiento | Queries extra por populate | Todo en una sola query en la BD |
+> | Virtuals | ✅ disponibles | ✗ trabaja directo sobre MongoDB |
 
 ---
 
@@ -1003,15 +1057,16 @@ curl http://localhost:3000/api/books
 | Método | Endpoint | Descripción |
 |---|---|---|
 | GET | `/autores` | Listar todos los autores |
-| GET | `/autores/:id` | Obtener un autor por ID |
-| POST | `/authors` | Crear un autor |
+| GET | `/autores/:id` | Obtener autor por ID |
+| POST | `/autores` | Crear un autor |
 | PUT | `/autores/:id` | Actualizar un autor |
 | DELETE | `/autores/:id` | Eliminar un autor |
-| GET | `/libros` | Listar todos los libros (con autor populado) |
-| GET | `/libros/:id` | Obtener un libro por ID |
+| GET | `/libros` | Listar libros (autor populado) |
+| GET | `/libros/:id` | Obtener libro por ID |
 | POST | `/libros` | Crear un libro |
 | PUT | `/libros/:id` | Actualizar un libro |
 | DELETE | `/libros/:id` | Eliminar un libro |
+| GET | `/libros/era/:era` | Filtrar libros por era |
 
 ---
 
@@ -1019,11 +1074,13 @@ curl http://localhost:3000/api/books
 
 | Concepto | Descripción |
 |---|---|
-| `Schema` | Define estructura, tipos y validaciones. Vive separado del model. (JOI)|
-| `Model` | Clase generada por Mongoose a partir del schema. Da acceso a los métodos de la colección. |
-| `Controller` | Contiene la lógica de cada operación. Recibe `req`, opera la DB, envía `res`. |
-| `Route` | Asocia método HTTP + path con su controller (y middlewares intermedios). |
-| `Middleware` | Función `(req, res, next)` que se ejecuta antes del controller para validar, transformar o manejar errores. |
-| `populate()` | Reemplaza un `ObjectId` por el documento referenciado al momento de la consulta. |
-| `next(error)` | Delega un error al middleware `errorHandler` en lugar de manejarlo inline. |
-| `runValidators` | Opción en `findByIdAndUpdate` para que aplique las validaciones del schema también en actualizaciones. |
+| `Schema` | Estructura, tipos y validaciones del documento |
+| `Model` | Clase generada por Mongoose para operar la colección |
+| `Controller` | Lógica de cada operación: recibe `req`, opera DB, envía `res` |
+| `Route` | Asocia HTTP + path con su controller y middlewares |
+| `Middleware` | Función `(req, res, next)` que corre antes del controller |
+| `populate()` | Reemplaza un `ObjectId` por el documento referenciado |
+| `virtual` | Campo calculado, no se guarda en MongoDB |
+| `$lookup` | Join entre colecciones (Aggregation Pipeline) |
+| `$match` | Filtro de documentos (Aggregation Pipeline) |
+| `$group` | Agrupación y cálculos (Aggregation Pipeline) |
