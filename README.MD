@@ -59,7 +59,7 @@ mkdir -p src/config src/controllers src/middlewares src/models src/routes
 
 ```env
 PORT=3001
-MONGO_URL=mongodb://admin:admin1234@mongodb:27017/seriesMongo?authSource=admin
+MONGO_URL=mongodb://admin:admin1234@localhost:27017/seriesMongo?authSource=admin
 
 # MongoDB
 MONGO_ROOT_USERNAME=admin
@@ -336,7 +336,7 @@ Los virtuals **no existen como campo en MongoDB**, por lo que no se pueden usar 
 // GET /libros/era/:era
 const getLibroByEra = async (req, res, next) => {
   try {
-    const { era } = req.params;
+    const era = req.params;
     const validas = ['antiguo', 'moderno', 'contemporáneo', 'sin clasificar'];
 
     if (!validas.includes(era)) {
@@ -344,14 +344,12 @@ const getLibroByEra = async (req, res, next) => {
         message: `Era inválida. Valores posibles: ${validas.join(', ')}`,
       });
     }
-
     // lean() NO sirve acá porque desactiva los virtuals
     // Traemos todos los libros como documentos Mongoose para que el virtual funcione
     const libros = await Libro.find().populate('autor', 'nombre');
 
     // Filtramos en memoria usando el virtual era de cada documento
     const resultado = libros.filter((libro) => libro.era === era);
-
     res.status(200).json(resultado);
   } catch (error) {
     res.status(500).json({ message: 'Error al buscar libros por era' });
@@ -464,9 +462,6 @@ const connectDB = require('./src/config/db');
 const autorRoutes = require('./src/routes/autorRoutes');
 const libroRoutes = require('./src/routes/libroRoutes');
 
-const notFound = require('./src/middlewares/notFound');
-const errorHandler = require('./src/middlewares/errorHandler');
-
 const app = express();
 
 // Middlewares globales
@@ -476,9 +471,6 @@ app.use(express.json()); // parsea el body de los requests como JSON
 app.use('/autores', autorRoutes);
 app.use('/libros', libroRoutes);
 
-// Middlewares de error (siempre al final)
-app.use(notFound);
-app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
@@ -567,6 +559,9 @@ volumes:
 ### Solo la base de datos con Docker
 
 ```bash
+# Si ponen los datos completos en el Docker-compose
+docker compose up -d
+
 # Levantar MongoDB y Mongo Express leyendo variables del .env
 docker compose --env-file .env up -d
 
@@ -582,48 +577,55 @@ Una vez que los contenedores estén corriendo, podés acceder a **Mongo Express*
 ### La app Node (en otra terminal)
 
 ```bash
+# Pueden generar un script donde levante docker y la aplicación 
+"scripts":{
+    "docker:up": "docker compose --env-file .env up -d && node index.js" 
+}
+# Se ejecuta con 
+npm run docker:up
+
 # Desarrollo con recarga automática
-npx nodemon index.js
+npm run dev
 
 # O sin nodemon
-node index.js
+npm run start
 ```
 
 ---
 
 ## 🧪 Probar los endpoints
 
-Con el servidor corriendo en `http://localhost:3001`:
+Con el servidor corriendo en `http://localhost:3000`:
 
 ### Autores
 
 **Crear un autor**
 ```bash
-curl -X POST http://localhost:3001/autores \
+curl -X POST http://localhost:3000/autores \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Gabriel García Márquez", "nacionalidad": "Colombia", "anioNacimiento": 1927}'
 ```
 
 **Obtener todos los autores**
 ```bash
-curl http://localhost:3001/autores
+curl http://localhost:3000/autores
 ```
 
 **Obtener autor por ID**
 ```bash
-curl http://localhost:3001/autores/<id>
+curl http://localhost:3000/autores/<id>
 ```
 
 **Actualizar un autor**
 ```bash
-curl -X PUT http://localhost:3001/autores/<id> \
+curl -X PUT http://localhost:3000/autores/<id> \
   -H "Content-Type: application/json" \
   -d '{"nacionalidad": "Colombiana"}'
 ```
 
 **Eliminar un autor**
 ```bash
-curl -X DELETE http://localhost:3001/autores/<id>
+curl -X DELETE http://localhost:3000/autores/<id>
 ```
 
 ---
@@ -632,38 +634,38 @@ curl -X DELETE http://localhost:3001/autores/<id>
 
 **Crear un libro** (el campo `autor` debe ser un `_id` válido de un autor existente)
 ```bash
-curl -X POST http://localhost:3001/libros \
+curl -X POST http://localhost:3000/libros \
   -H "Content-Type: application/json" \
   -d '{"titulo": "Cien años de soledad", "genero": "Realismo mágico", "anio": 1967, "autor": "<autor_id>"}'
 ```
 
 **Obtener todos los libros** (incluye datos del autor via populate)
 ```bash
-curl http://localhost:3001/libros
+curl http://localhost:3000/libros
 ```
 
 **Obtener libro por ID**
 ```bash
-curl http://localhost:3001/libros/<id>
+curl http://localhost:3000/libros/<id>
 ```
 
 **Filtrar libros por era**
 ```bash
-curl http://localhost:3001/libros/era/moderno
-curl http://localhost:3001/libros/era/contemporáneo
-curl http://localhost:3001/libros/era/antiguo
+curl http://localhost:3000/libros/era/moderno
+curl http://localhost:3000/libros/era/contemporáneo
+curl http://localhost:3000/libros/era/antiguo
 ```
 
 **Actualizar un libro**
 ```bash
-curl -X PUT http://localhost:3001/libros/<id> \
+curl -X PUT http://localhost:3000/libros/<id> \
   -H "Content-Type: application/json" \
   -d '{"genero": "Realismo"}'
 ```
 
 **Eliminar un libro**
 ```bash
-curl -X DELETE http://localhost:3001/libros/<id>
+curl -X DELETE http://localhost:3000/libros/<id>
 ```
 
 ---

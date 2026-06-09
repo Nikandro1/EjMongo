@@ -12,8 +12,6 @@ const libroSchema = new mongoose.Schema(
     anio: {
       type: Number
     },
-    // ref: 'Autor' indica que este campo apunta a un documento del modelo Autor
-    // Permite usar .populate('autor') para obtener el objeto completo en lugar del _id
     autor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Autor',
@@ -27,8 +25,6 @@ const libroSchema = new mongoose.Schema(
   }
 );
 
-// Virtual: clasifica el libro según su año de publicación
-// No se guarda en MongoDB, se calcula cada vez que se accede al documento
 libroSchema.virtual('era').get(function () {
   if (!this.anio) return 'sin clasificar';
   if (this.anio < 1800) return 'antiguo';

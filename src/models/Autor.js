@@ -14,7 +14,7 @@ const autorSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // agrega createdAt y updatedAt automáticamente
+    timestamps: true,
   }
 );
 const Autor = mongoose.model('Autor', autorSchema);
